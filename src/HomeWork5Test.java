@@ -32,7 +32,7 @@ public class HomeWork5Test extends TestCase{
 
 	static String inputDirectory = projectDirectory + "/input/";
 
-	static  int totalPoints = 400;
+	static  float totalPoints = 400;
 
 	public static final String EXTRACT_LINKS_INPUT_LINK_BEFORE_P_TAG = "<html><body> <a href=\"/wiki/NotValid.html\"> Link before p tag </a> <p> Sample body </p></body></html>";
 	public static final String EXTRACT_LINKS_INPUT_NON_WIKI_LINK = "<html><body><p> Sample body </p> <a href=\"/NotValid.html\"> Invalid Link after p tag </a> </body></html>";
@@ -104,15 +104,19 @@ public class HomeWork5Test extends TestCase{
 		List<String> edges = new ArrayList<String>();
 		try {
 			BufferedReader reader = new BufferedReader(new FileReader(fileName));
-			String line = null;
+			String line;
 			while((line = reader.readLine()) != null) {
 				if(!line.trim().equals("")){
-					edges.add(line);
+					line = line.trim();
+					String[] split = line.split("\\s+");
+					if(split == null || split.length < 2) {
+						split = line.split("\\t+");
+					}
+					edges.add(split[0] + " " + split[1]);
 				}
 			}
 			reader.close();
 		} catch (Exception e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
 		return edges;
@@ -120,17 +124,32 @@ public class HomeWork5Test extends TestCase{
 
 	// test extract link - end
 	// test simple graph - start
+
+	private float jaccardSimilarity(Collection<String> a, Collection<String> b) {
+		Set<String> union = new HashSet<String>();
+		union.addAll(a);
+		union.addAll(b);
+		Set<String> intersection = new HashSet<String>();
+		for(String edge : a) {
+			if(b.contains(edge)) {
+				intersection.add(edge);
+			}
+		}
+		return (float) intersection.size() / (float) union.size();
+	}
 	
 	@Test
 	public void testSimpleGraph1() {
 		WikiCrawler crawler = new WikiCrawler("/wiki/A.html", 100, "Graph-S1.txt");
 		crawler.crawl();
 		List<String> edges = getEdgesFromFile("Graph-S1.txt");
-		if (!edges.contains("/wiki/A.html /wiki/B.html") 
-				|| !edges.contains("/wiki/B.html /wiki/C.html") 
-				|| !edges.contains("/wiki/C.html /wiki/A.html")) {
-			totalPoints -= 5;
-			commentsBuilder.append("Web graph formed incorrectly for a simple graph with a directional triangle[Graph-1](-5 points). ");
+		String[] expectedEdges = new String[]{"/wiki/A.html /wiki/B.html","/wiki/B.html /wiki/C.html","/wiki/C.html /wiki/A.html"};
+		List<String> expected = Arrays.asList(expectedEdges);
+		float sim = jaccardSimilarity(edges,expected);
+		if (sim != 1.0f) {
+			float pointsToDeduct = 5.0f - (5.0f * sim);
+			totalPoints -= 5 - pointsToDeduct;
+			commentsBuilder.append("Web graph formed incorrectly for a simple graph with a directional triangle[Graph-1](-" + pointsToDeduct + "  points). ");
 			collector.addError(new AssertionFailedError("Web graph formed incorrectly"));
 		}
 	}
@@ -140,14 +159,13 @@ public class HomeWork5Test extends TestCase{
 		WikiCrawler crawler = new WikiCrawler("/wiki/A1.html", 100, "Graph-S2.txt");
 		crawler.crawl();
 		List<String> edges = getEdgesFromFile("Graph-S2.txt");
-		if (!edges.contains("/wiki/A1.html /wiki/B1.html")
-				|| !edges.contains("/wiki/A1.html /wiki/C1.html")
-				|| !edges.contains("/wiki/B1.html /wiki/C1.html")
-				|| !edges.contains("/wiki/B1.html /wiki/A1.html")
-				|| !edges.contains("/wiki/C1.html /wiki/A1.html")
-				|| !edges.contains("/wiki/C1.html /wiki/B1.html")) {
-			totalPoints -= 5;
-			commentsBuilder.append("Web graph formed incorrectly for a simple fully connected graph[Graph-2](-5 points). ");
+		String[] expectedEdges = new String[]{"/wiki/A1.html /wiki/B1.html","/wiki/A1.html /wiki/C1.html","/wiki/B1.html /wiki/C1.html", "/wiki/B1.html /wiki/A1.html", "/wiki/C1.html /wiki/A1.html","/wiki/C1.html /wiki/B1.html"};
+		List<String> expected = Arrays.asList(expectedEdges);
+		float sim = jaccardSimilarity(edges,expected);
+		if (sim != 1.0f) {
+			float pointsToDeduct = 5.0f - (5.0f * sim);
+			totalPoints -= 5 - pointsToDeduct;
+			commentsBuilder.append("Web graph formed incorrectly for a simple fully connected graph[Graph-2](-" + pointsToDeduct + "  points). ");
 			collector.addError(new AssertionFailedError("Web graph formed incorrectly"));
 		}
 	}
@@ -157,11 +175,13 @@ public class HomeWork5Test extends TestCase{
 		WikiCrawler crawler = new WikiCrawler("/wiki/A2.html", 100, "Graph-S3.txt");
 		crawler.crawl();
 		List<String> edges = getEdgesFromFile("Graph-S3.txt");
-		if (!edges.contains("/wiki/A2.html /wiki/B2.html")
-				|| !edges.contains("/wiki/A2.html /wiki/C2.html")
-				|| !edges.contains("/wiki/B2.html /wiki/C2.html")) {
-			totalPoints -= 5;
-			commentsBuilder.append("Web graph formed incorrectly for a simple graph with 3 edges and 3 nodes[Graph-3](-5 points). ");
+		String[] expectedEdges = new String[]{"/wiki/A2.html /wiki/B2.html","/wiki/A2.html /wiki/C2.html","/wiki/B2.html /wiki/C2.html"};
+		List<String> expected = Arrays.asList(expectedEdges);
+		float sim = jaccardSimilarity(edges,expected);
+		if (sim != 1.0f) {
+			float pointsToDeduct = 5.0f - (5.0f * sim);
+			totalPoints -= 5 - pointsToDeduct;
+			commentsBuilder.append("Web graph formed incorrectly for a simple graph with 3 edges and 3 nodes[Graph-3](-" + pointsToDeduct + "  points). ");
 			collector.addError(new AssertionFailedError("Web graph formed incorrectly"));
 		}
 	}
@@ -174,10 +194,7 @@ public class HomeWork5Test extends TestCase{
 		WikiCrawler crawler = new WikiCrawler("/wiki/D.html", 100, "Graph-M1.txt");
 		crawler.crawl();
 		List<String> edges = getEdgesFromFile("Graph-M1.txt");
-		if (hasDuplicateEdges(edges) || ((!edges.contains("/wiki/E.html /wiki/F.html")
-				|| !edges.contains("/wiki/D.html /wiki/E.html")
-				|| !edges.contains("/wiki/F.html /wiki/D.html"))
-				&& (edges.size() != 4))) {
+		if (hasDuplicateEdges(edges)) {
 			totalPoints -= 5;
 			commentsBuilder.append("Web graph formed incorrectly when there are multiple links between pages[Graph-4](-5 points). ");
 			collector.addError(new AssertionFailedError("Web graph formed incorrectly"));
@@ -189,10 +206,7 @@ public class HomeWork5Test extends TestCase{
 		WikiCrawler crawler = new WikiCrawler("/wiki/D1.html", 100, "Graph-M2.txt");
 		crawler.crawl();
 		List<String> edges = getEdgesFromFile("Graph-M2.txt");
-		if (hasDuplicateEdges(edges) || ((!edges.contains("/wiki/E1.html /wiki/F1.html")
-				|| !edges.contains("/wiki/D1.html /wiki/E1.html")
-				|| !edges.contains("/wiki/F1.html /wiki/D1.html"))
-				&& (edges.size() != 4))) {
+		if (hasDuplicateEdges(edges)) {
 			totalPoints -= 5;
 			commentsBuilder.append("Web graph formed incorrectly when there are multiple links between pages[Graph-5](-5 points). ");
 			collector.addError(new AssertionFailedError("Web graph formed incorrectly"));
@@ -204,9 +218,7 @@ public class HomeWork5Test extends TestCase{
 		WikiCrawler crawler = new WikiCrawler("/wiki/D2.html", 100, "Graph-M3.txt");
 		crawler.crawl();
 		List<String> edges = getEdgesFromFile("Graph-M3.txt");
-		if (hasDuplicateEdges(edges) || ((!edges.contains("/wiki/E2.html /wiki/F2.html")
-				|| !edges.contains("/wiki/D2.html /wiki/E2.html"))
-				&& (edges.size() != 3))) {
+		if (hasDuplicateEdges(edges)) {
 			totalPoints -= 5;
 			commentsBuilder.append("Web graph formed incorrectly when there are multiple links between pages[Graph-6](-5 points). ");
 			collector.addError(new AssertionFailedError("Web graph formed incorrectly"));
@@ -233,10 +245,7 @@ public class HomeWork5Test extends TestCase{
 		WikiCrawler crawler = new WikiCrawler("/wiki/G.html", 100, "Graph-L1.txt");
 		crawler.crawl();
 		List<String> edges = getEdgesFromFile("Graph-L1.txt");
-		if (hasSelfEdge(edges) ||
-				((!edges.contains("/wiki/G.html /wiki/H.html")
-						|| !edges.contains("/wiki/H.html /wiki/I.html"))
-				&& (edges.size() != 3))) {
+		if (hasSelfEdge(edges)) {
 			totalPoints -= 5;
 			commentsBuilder.append("Web graph formed incorrectly when there are self links in pages[Graph-7](-5 points). ");
 			collector.addError(new AssertionFailedError("Web graph formed incorrectly"));
@@ -248,10 +257,7 @@ public class HomeWork5Test extends TestCase{
 		WikiCrawler crawler = new WikiCrawler("/wiki/G1.html", 100, "Graph-L2.txt");
 		crawler.crawl();
 		List<String> edges = getEdgesFromFile("Graph-L2.txt");
-		if (hasSelfEdge(edges) ||
-				((!edges.contains("/wiki/G1.html /wiki/H1.html")
-						|| !edges.contains("/wiki/H1.html /wiki/I1.html"))
-						&& (edges.size() != 3))) {
+		if (hasSelfEdge(edges)) {
 			totalPoints -= 5;
 			commentsBuilder.append("Web graph formed incorrectly when there are self links in pages[Graph-8](-5 points). ");
 			Assert.fail("Web graph formed incorrectly");
@@ -263,10 +269,7 @@ public class HomeWork5Test extends TestCase{
 		WikiCrawler crawler = new WikiCrawler("/wiki/G2.html", 100, "Graph-L3.txt");
 		crawler.crawl();
 		List<String> edges = getEdgesFromFile("Graph-L3.txt");
-		if (hasSelfEdge(edges) ||
-				((!edges.contains("/wiki/G2.html /wiki/H2.html")
-						|| !edges.contains("/wiki/H2.html /wiki/I2.html"))
-						&& (edges.size() != 3))) {
+		if (hasSelfEdge(edges)) {
 			totalPoints -= 5;
 			commentsBuilder.append("Web graph formed incorrectly when there are self links in pages[Graph-9](-5 points). ");
 			Assert.fail("Web graph formed incorrectly");
@@ -293,10 +296,13 @@ public class HomeWork5Test extends TestCase{
 		WikiCrawler crawler = new WikiCrawler("/wiki/J.html", 100, "Graph-V1.txt");
 		crawler.crawl();
 		List<String> edges = getEdgesFromFile("Graph-V1.txt");
-		if (!edges.contains("/wiki/J.html /wiki/K.html")
-				|| !edges.contains("/wiki/K.html /wiki/J.html")) {
-			totalPoints -= 10;
-			commentsBuilder.append("Web graph formed incorrectly when there are links between two pages[Graph-10](-10 points). ");
+		String[] expectedEdges = new String[]{"/wiki/J.html /wiki/K.html","/wiki/K.html /wiki/J.html"};
+		List<String> expected = Arrays.asList(expectedEdges);
+		float sim = jaccardSimilarity(edges,expected);
+		if (sim != 1.0f) {
+			float pointsToDeduct = 10.0f - (10.0f * sim);
+			totalPoints -= 10 - pointsToDeduct;
+			commentsBuilder.append("Web graph formed incorrectly when there are links between two pages[Graph-10](-" + pointsToDeduct + " points). ");
 			Assert.fail("Web graph formed incorrectly");
 		}
 	}
@@ -416,20 +422,17 @@ public class HomeWork5Test extends TestCase{
 
 	@Test
 	public void testOutDegree1() {
-		// TODO add final points
-		checkOutDegree("outdegree-1.txt",1,4);
+		checkOutDegree("outdegree-1.txt",1,3);
 	}
 
 	@Test
 	public void testOutDegree2() {
-		// TODO add final points
-		checkOutDegree("outdegree-2.txt",4,4);
+		checkOutDegree("outdegree-2.txt",4,3);
 	}
 
 	@Test
 	public void testOutDegree3() {
-		// TODO add final points
-		checkOutDegree("outdegree-3.txt",0,4);
+		checkOutDegree("outdegree-3.txt",0,3);
 	}
 
 	private void checkOutDegree(String fileName, int expectedOutput, int points) {
@@ -468,23 +471,29 @@ public class HomeWork5Test extends TestCase{
 	}
 
 	private void checkComponentVertices(GraphProcessor graphProcessor, String vertex, List<String> expectedValue, int points, String graph) {
-		String deduct = "[" + graph + "](-" + points + " points). ";
 		try {
 			List<String> vertices = graphProcessor.componentVertices(vertex);
+			if(!vertices.contains(vertex)) {
+				vertices.add(vertex);
+			}
+			float similarity = jaccardSimilarity(vertices, expectedValue);
 			// we use containsAll here because order does not matter
-			if(!vertices.containsAll(expectedValue)) {
-				totalPoints -= points;
+			if(similarity != 0.0f) {
+				float pointsToDeduct = (float)points - ((float) points * similarity);
+				String deduct = "[" + graph + "](-" + pointsToDeduct + " points). ";
+				totalPoints -= pointsToDeduct;
 				commentsBuilder.append("Incorrect value returned for GraphProcessor.componentVertices(" + vertex + ")" + deduct);
 				collector.addError(new AssertionFailedError("Incorrect value returned for GraphProcessor.componentVertices"));
 			}
 		} catch (Exception e) {
+			String deduct = "[" + graph + "](-" + points + " points). ";
 			totalPoints -= points;
 			commentsBuilder.append("Exception creating GraphProcessor while testing componentVertices. Exception - " + e.getClass().getCanonicalName() +", " + deduct);
 			collector.addError(new AssertionFailedError("Exception testing scc"));
 		}
 	}
 
-	private GraphProcessor createGraphProcessor(String fileName, int points) {
+	private GraphProcessor createGraphProcessor(String fileName, float points) {
 		String deduct = "(-" + points + " points). ";
 		GraphProcessor graphProcessor = null;
 		try {
@@ -497,152 +506,150 @@ public class HomeWork5Test extends TestCase{
 		return graphProcessor;
 	}
 
+	private void checkNumCompAndLargestComp(GraphProcessor graphProcessor, int expectedNumComp, int expectedLargest, int points, String graphId) {
+		String deduct = "[" + graphId + "](-" + points + " points). ";
+		try {
+			if(! (graphProcessor.numComponents() != expectedNumComp)) {
+				totalPoints -= points;
+				commentsBuilder.append("Incorrect value for numComponents"+ deduct);
+				collector.addError(new AssertionError("Incorrect numComp"));
+			}
+		} catch (Exception e) {
+			totalPoints -= points;
+			commentsBuilder.append("Exception creating GraphProcessor while testing numComponents. Exception - " + e.getClass().getCanonicalName() +", " + deduct);
+			collector.addError(new AssertionError("Exception in graphProcessor"));
+		}
+		try {
+			if(! (graphProcessor.largestComponent() != expectedLargest)) {
+				totalPoints -= points;
+				commentsBuilder.append("Incorrect value for largestComponent"+ deduct);
+				collector.addError(new AssertionError("Exception in graphProcessor"));
+			}
+		} catch (Exception e) {
+			totalPoints -= points;
+			commentsBuilder.append("Exception creating GraphProcessor while testing largestComponent. Exception - " + e.getClass().getCanonicalName() +", " + deduct);
+			collector.addError(new AssertionError("Incorrect largestComp"));
+		}
+	}
+
 	@Test
 	public void testSCC1() {
-		// TODO decide final points
-		GraphProcessor graphProcessor = createGraphProcessor("scc-1.txt", 5);
+		GraphProcessor graphProcessor = createGraphProcessor("scc-1.txt", 18);
 		String graphId = "scc-1";
-		// TODO decide final points
-		checkSameComponent(graphProcessor, "A", "B", true, 5, graphId);
-		// TODO decide final points
-		checkSameComponent(graphProcessor, "A", "C", true, 5, graphId);
+		checkSameComponent(graphProcessor, "A", "B", true, 3, graphId);
+		checkSameComponent(graphProcessor, "A", "C", true, 3, graphId);
 
 		String[] components = new String[]{"A","B","C"};
 		List<String> expectedComponent = Arrays.asList(components);
-		// TODO decide final points
-		checkComponentVertices(graphProcessor,"A",expectedComponent,5,graphId);
-		// TODO decide final points
-		checkComponentVertices(graphProcessor,"B",expectedComponent,5,graphId);
+		checkComponentVertices(graphProcessor,"A",expectedComponent,3,graphId);
+		checkComponentVertices(graphProcessor,"B",expectedComponent,3,graphId);
+
+		checkNumCompAndLargestComp(graphProcessor,1,3,3,graphId);
 	}
 
 	@Test
 	public void testSCC2() {
-		// TODO decide final points
-		GraphProcessor graphProcessor = createGraphProcessor("scc-2.txt", 5);
+		GraphProcessor graphProcessor = createGraphProcessor("scc-2.txt", 18);
 		String graphId = "scc-2";
-		// TODO decide final points
-		checkSameComponent(graphProcessor, "A", "B", false, 5, graphId);
-		// TODO decide final points
-		checkSameComponent(graphProcessor, "B", "C", true, 5, graphId);
+		checkSameComponent(graphProcessor, "A", "B", false, 3, graphId);
+		checkSameComponent(graphProcessor, "B", "C", true, 3, graphId);
 
 		String[] component1 = new String[]{"A"};
 		String[] component2 = new String[]{"B","C"};
-		// TODO decide final points
-		checkComponentVertices(graphProcessor,"A",Arrays.asList(component1),5,graphId);
-		// TODO decide final points
-		checkComponentVertices(graphProcessor,"B",Arrays.asList(component2),5,graphId);
+		checkComponentVertices(graphProcessor,"A",Arrays.asList(component1),3,graphId);
+		checkComponentVertices(graphProcessor,"B",Arrays.asList(component2),3,graphId);
+
+		checkNumCompAndLargestComp(graphProcessor,1,3,3,graphId);
 	}
 
 	@Test
 	public void testSCC3() {
-		// TODO decide final points
-		GraphProcessor graphProcessor = createGraphProcessor("scc-3.txt", 5);
+		GraphProcessor graphProcessor = createGraphProcessor("scc-3.txt", 30);
 		String graphId = "scc-3";
-		// TODO decide final points
-		checkSameComponent(graphProcessor, "A", "B", true, 5, graphId);
-		// TODO decide final points
-		checkSameComponent(graphProcessor, "D", "E", true, 5, graphId);
-		// TODO decide final points
-		checkSameComponent(graphProcessor, "D", "A", false, 5, graphId);
-		// TODO decide final points
-		checkSameComponent(graphProcessor, "B", "F", false, 5, graphId);
+		checkSameComponent(graphProcessor, "A", "B", true, 3, graphId);
+		checkSameComponent(graphProcessor, "D", "E", true, 3, graphId);
+		checkSameComponent(graphProcessor, "D", "A", false, 3, graphId);
+		checkSameComponent(graphProcessor, "B", "F", false, 3, graphId);
 
 		String[] component1 = new String[]{"A","B","C"};
 		String[] component2 = new String[]{"D","E","F"};
-		// TODO decide final points
-		checkComponentVertices(graphProcessor,"A",Arrays.asList(component1),5,graphId);
-		// TODO decide final points
-		checkComponentVertices(graphProcessor,"C",Arrays.asList(component1),5,graphId);
-		// TODO decide final points
-		checkComponentVertices(graphProcessor,"D",Arrays.asList(component2),5,graphId);
-		// TODO decide final points
-		checkComponentVertices(graphProcessor,"E",Arrays.asList(component2),5,graphId);
+		checkComponentVertices(graphProcessor,"A",Arrays.asList(component1),3,graphId);
+		checkComponentVertices(graphProcessor,"C",Arrays.asList(component1),3,graphId);
+		checkComponentVertices(graphProcessor,"D",Arrays.asList(component2),3,graphId);
+		checkComponentVertices(graphProcessor,"E",Arrays.asList(component2),3,graphId);
+
+		checkNumCompAndLargestComp(graphProcessor,2,3,3,graphId);
 	}
 
 	@Test
 	public void testSCC4() {
-		// TODO decide final points
-		GraphProcessor graphProcessor = createGraphProcessor("scc-4.txt", 5);
+		GraphProcessor graphProcessor = createGraphProcessor("scc-4.txt", 21);
 		String graphId = "scc-4";
-		// TODO decide final points
-		checkSameComponent(graphProcessor, "A", "D", true, 5, graphId);
-		// TODO decide final points
-		checkSameComponent(graphProcessor, "E", "C", true, 5, graphId);
-		// TODO decide final points
-		checkSameComponent(graphProcessor, "B", "F", true, 5, graphId);
+		checkSameComponent(graphProcessor, "A", "D", true, 3, graphId);
+		checkSameComponent(graphProcessor, "E", "C", true, 3, graphId);
+		checkSameComponent(graphProcessor, "B", "F", true, 3, graphId);
 
 		String[] component1 = new String[]{"A","B","C","D","E","F"};
-		// TODO decide final points
-		checkComponentVertices(graphProcessor,"A",Arrays.asList(component1),5,graphId);
-		// TODO decide final points
-		checkComponentVertices(graphProcessor,"F",Arrays.asList(component1),5,graphId);
+		checkComponentVertices(graphProcessor,"A",Arrays.asList(component1),3,graphId);
+		checkComponentVertices(graphProcessor,"F",Arrays.asList(component1),3,graphId);
+
+		checkNumCompAndLargestComp(graphProcessor,1,6,3,graphId);
 	}
 
 	@Test
 	public void testSCC5() {
 		// TODO decide final points
-		GraphProcessor graphProcessor = createGraphProcessor("scc-5.txt", 5);
+		GraphProcessor graphProcessor = createGraphProcessor("scc-5.txt", 15);
 		String graphId = "scc-5";
-		// TODO decide final points
-		checkSameComponent(graphProcessor, "A", "D", true, 5, graphId);
-		// TODO decide final points
-		checkSameComponent(graphProcessor, "C", "D", true, 5, graphId);
+		checkSameComponent(graphProcessor, "A", "D", true, 3, graphId);
+		checkSameComponent(graphProcessor, "C", "D", true, 3, graphId);
 
 		String[] component1 = new String[]{"A","B","C","D"};
-		// TODO decide final points
-		checkComponentVertices(graphProcessor,"A",Arrays.asList(component1),5,graphId);
+		checkComponentVertices(graphProcessor,"A",Arrays.asList(component1),3,graphId);
+
+		checkNumCompAndLargestComp(graphProcessor,1,4,3,graphId);
 	}
 
 	@Test
 	public void testSCC6() {
-		// TODO decide final points
-		GraphProcessor graphProcessor = createGraphProcessor("scc-6.txt", 5);
+		GraphProcessor graphProcessor = createGraphProcessor("scc-6.txt", 24);
 		String graphId = "scc-6";
-		// TODO decide final points
-		checkSameComponent(graphProcessor, "C", "B", true, 5, graphId);
-		// TODO decide final points
-		checkSameComponent(graphProcessor, "B", "E", false, 5, graphId);
-		// TODO decide final points
-		checkSameComponent(graphProcessor, "D", "F", false, 5, graphId);
-		// TODO decide final points
-		checkSameComponent(graphProcessor, "A", "E", false, 5, graphId);
+		checkSameComponent(graphProcessor, "C", "B", true, 3, graphId);
+		checkSameComponent(graphProcessor, "B", "E", false, 3, graphId);
+		checkSameComponent(graphProcessor, "D", "F", false, 3, graphId);
+		checkSameComponent(graphProcessor, "A", "E", false, 3, graphId);
 
 		String[] component1 = new String[]{"A","B","C","D"};
 		String[] component2 = new String[]{"E","F","G"};
-		// TODO decide final points
-		checkComponentVertices(graphProcessor,"A",Arrays.asList(component1),5,graphId);
-		// TODO decide final points
-		checkComponentVertices(graphProcessor,"E",Arrays.asList(component2),5,graphId);
+		checkComponentVertices(graphProcessor,"A",Arrays.asList(component1),3,graphId);
+		checkComponentVertices(graphProcessor,"E",Arrays.asList(component2),3,graphId);
+
+		checkNumCompAndLargestComp(graphProcessor,2,4,3,graphId);
 	}
 
 	@Test
 	public void testSCC7() {
-		// TODO decide final points
-		GraphProcessor graphProcessor = createGraphProcessor("scc-7.txt", 5);
+		GraphProcessor graphProcessor = createGraphProcessor("scc-7.txt", 24);
 		String graphId = "scc-7";
-		// TODO decide final points
-		checkSameComponent(graphProcessor, "A", "D", false, 5, graphId);
-		// TODO decide final points
-		checkSameComponent(graphProcessor, "D", "E", false, 5, graphId);
-		// TODO decide final points
-		checkSameComponent(graphProcessor, "C", "E", false, 5, graphId);
+		checkSameComponent(graphProcessor, "A", "D", false, 3, graphId);
+		checkSameComponent(graphProcessor, "D", "E", false, 3, graphId);
+		checkSameComponent(graphProcessor, "C", "E", false, 3, graphId);
 
 		String[] component1 = new String[]{"A","B","C"};
 		String[] component2 = new String[]{"D"};
 		String[] component3 = new String[]{"E"};
 
-		// TODO decide final points
-		checkComponentVertices(graphProcessor,"A",Arrays.asList(component1),5,graphId);
-		// TODO decide final points
-		checkComponentVertices(graphProcessor,"D",Arrays.asList(component2),5,graphId);
-		// TODO decide final points
-		checkComponentVertices(graphProcessor,"E",Arrays.asList(component3),5,graphId);
+		checkComponentVertices(graphProcessor,"A",Arrays.asList(component1),3,graphId);
+		checkComponentVertices(graphProcessor,"D",Arrays.asList(component2),3,graphId);
+		checkComponentVertices(graphProcessor,"E",Arrays.asList(component3),3,graphId);
+
+		checkNumCompAndLargestComp(graphProcessor,3,3,3,graphId);
 	}
 
 	// test scc - end
 	// test BFS path - start
 
-	private void checkBFSPath(GraphProcessor graphProcessor, String source, String dest, List<String> expectedPath, int points, String graphId) {
+	private void checkBFSPath(GraphProcessor graphProcessor, String source, String dest, List<String> expectedPath, float points, String graphId) {
 		String deduct = "[" + graphId + "](-" + points + " points). ";
 		try {
 			List<String> path = graphProcessor.bfsPath(source, dest);
@@ -660,51 +667,40 @@ public class HomeWork5Test extends TestCase{
 
 	@Test
 	public void testBFSPath1() {
-		// TODO decide final points
-		GraphProcessor graphProcessor = createGraphProcessor("bfs-1.txt",5);
+		GraphProcessor graphProcessor = createGraphProcessor("bfs-1.txt",11);
 		String graphId = "bfs-1";
 
 		String[] path1 = new String[]{"C","D","B","A"};
 		String[] path2 = new String[]{"A","B","C"};
 
-		// TODO decide final points
-		checkBFSPath(graphProcessor,"C", "A",Arrays.asList(path1),5,graphId);
-		// TODO decide final points
-		checkBFSPath(graphProcessor,"A", "C",Arrays.asList(path2),5,graphId);
+		checkBFSPath(graphProcessor,"C", "A",Arrays.asList(path1),5.5f,graphId);
+		checkBFSPath(graphProcessor,"A", "C",Arrays.asList(path2),5.5f,graphId);
 	}
 
 	@Test
 	public void testBFSPath2() {
-		// TODO decide final points
-		GraphProcessor graphProcessor = createGraphProcessor("bfs-2.txt",5);
+		GraphProcessor graphProcessor = createGraphProcessor("bfs-2.txt",16.5f);
 		String graphId = "bfs-2";
 
 		String[] path1 = new String[]{"B","C","E"};
 		String[] path2 = new String[]{"A","B","C"};
 
-		// TODO decide final points
-		checkBFSPath(graphProcessor,"B", "E",Arrays.asList(path1),5,graphId);
-		// TODO decide final points
-		checkBFSPath(graphProcessor,"A", "C",Arrays.asList(path2),5,graphId);
-		// TODO decide final points
-		checkBFSPath(graphProcessor,"D", "F",null,5,graphId);
+		checkBFSPath(graphProcessor,"B", "E",Arrays.asList(path1),5.5f,graphId);
+		checkBFSPath(graphProcessor,"A", "C",Arrays.asList(path2),5.5f,graphId);
+		checkBFSPath(graphProcessor,"D", "F",null,5.5f,graphId);
 	}
 
 	@Test
 	public void testBFSPath3() {
-		// TODO decide final points
-		GraphProcessor graphProcessor = createGraphProcessor("bfs-3.txt",5);
+		GraphProcessor graphProcessor = createGraphProcessor("bfs-3.txt",16.5f);
 		String graphId = "bfs-3";
 
 		String[] path1 = new String[]{"C","E","B","D"};
 		String[] path2 = new String[]{"A","B","D"};
 
-		// TODO decide final points
-		checkBFSPath(graphProcessor,"C", "D",Arrays.asList(path1),5,graphId);
-		// TODO decide final points
-		checkBFSPath(graphProcessor,"A", "D",Arrays.asList(path2),5,graphId);
-		// TODO decide final points
-		checkBFSPath(graphProcessor,"B", "C",null,5,graphId);
+		checkBFSPath(graphProcessor,"C", "D",Arrays.asList(path1),5.5f,graphId);
+		checkBFSPath(graphProcessor,"A", "D",Arrays.asList(path2),5.5f,graphId);
+		checkBFSPath(graphProcessor,"B", "C",null,5.5f,graphId);
 	}
 
 	@AfterClass

@@ -262,6 +262,9 @@ public class GraphProcessor {
 		
 	
 	}
-	
 
+
+	public int largestComponent() {
+		return 0;
+	}
 }
