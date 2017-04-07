@@ -13,12 +13,21 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.util.*;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 @RunWith(JUnit4.class)
 public class HomeWork5Test extends TestCase{
 	
 	// Enter student name here before you run the tests
 	static String studentName = "Test Student";
+
+	public static final int TIMEOUT_MINUTES = 10;
+
+	// replace this with absolute path if running from command prompt
+	static String projectDirectory = System.getProperty("user.dir");
 	
 	// we use an error collector so that we can check all the asserts in a test before exiting. Otherwise, the
 	// test would exit on first failure
@@ -26,9 +35,6 @@ public class HomeWork5Test extends TestCase{
     public ErrorCollector collector = new ErrorCollector();
 	
 	static StringBuilder commentsBuilder = new StringBuilder("");
-
-	// replace this with absolute path if running from command prompt
-	static String projectDirectory = System.getProperty("user.dir");
 
 	static String inputDirectory = projectDirectory + "/input/";
 
@@ -112,7 +118,9 @@ public class HomeWork5Test extends TestCase{
 					if(split == null || split.length < 2) {
 						split = line.split("\\t+");
 					}
-					edges.add(split[0] + " " + split[1]);
+					if (split.length == 2) {
+						edges.add(split[0] + " " + split[1]);
+					}
 				}
 			}
 			reader.close();
@@ -445,6 +453,7 @@ public class HomeWork5Test extends TestCase{
 				Assert.fail("Incorrect out degree");
 			}
 		} catch (Exception e) {
+			e.printStackTrace();
 			totalPoints -= points;
 			commentsBuilder.append("Exception creating GraphProcessor while testing out degree. Exception - " + e.getClass().getCanonicalName() +", " + deduct);
 			Assert.fail("Exception testing out degree");
@@ -478,7 +487,7 @@ public class HomeWork5Test extends TestCase{
 			}
 			float similarity = jaccardSimilarity(vertices, expectedValue);
 			// we use containsAll here because order does not matter
-			if(similarity != 0.0f) {
+			if(similarity != 1.0f) {
 				float pointsToDeduct = (float)points - ((float) points * similarity);
 				String deduct = "[" + graph + "](-" + pointsToDeduct + " points). ";
 				totalPoints -= pointsToDeduct;
@@ -509,7 +518,7 @@ public class HomeWork5Test extends TestCase{
 	private void checkNumCompAndLargestComp(GraphProcessor graphProcessor, int expectedNumComp, int expectedLargest, int points, String graphId) {
 		String deduct = "[" + graphId + "](-" + points + " points). ";
 		try {
-			if(! (graphProcessor.numComponents() != expectedNumComp)) {
+			if(graphProcessor.numComponents() != expectedNumComp) {
 				totalPoints -= points;
 				commentsBuilder.append("Incorrect value for numComponents"+ deduct);
 				collector.addError(new AssertionError("Incorrect numComp"));
@@ -520,15 +529,15 @@ public class HomeWork5Test extends TestCase{
 			collector.addError(new AssertionError("Exception in graphProcessor"));
 		}
 		try {
-			if(! (graphProcessor.largestComponent() != expectedLargest)) {
+			if(graphProcessor.largestComponent() != expectedLargest) {
 				totalPoints -= points;
 				commentsBuilder.append("Incorrect value for largestComponent"+ deduct);
-				collector.addError(new AssertionError("Exception in graphProcessor"));
+				collector.addError(new AssertionError("Incorrect largestComp"));
 			}
 		} catch (Exception e) {
 			totalPoints -= points;
 			commentsBuilder.append("Exception creating GraphProcessor while testing largestComponent. Exception - " + e.getClass().getCanonicalName() +", " + deduct);
-			collector.addError(new AssertionError("Incorrect largestComp"));
+			collector.addError(new AssertionError("Exception in graphProcessor"));
 		}
 	}
 
@@ -559,12 +568,12 @@ public class HomeWork5Test extends TestCase{
 		checkComponentVertices(graphProcessor,"A",Arrays.asList(component1),3,graphId);
 		checkComponentVertices(graphProcessor,"B",Arrays.asList(component2),3,graphId);
 
-		checkNumCompAndLargestComp(graphProcessor,1,3,3,graphId);
+		checkNumCompAndLargestComp(graphProcessor,2,3,3,graphId);
 	}
 
 	@Test
 	public void testSCC3() {
-		GraphProcessor graphProcessor = createGraphProcessor("scc-3.txt", 30);
+		GraphProcessor graphProcessor = createGraphProcessor("scc-3.txt", 27);
 		String graphId = "scc-3";
 		checkSameComponent(graphProcessor, "A", "B", true, 3, graphId);
 		checkSameComponent(graphProcessor, "D", "E", true, 3, graphId);
@@ -574,7 +583,6 @@ public class HomeWork5Test extends TestCase{
 		String[] component1 = new String[]{"A","B","C"};
 		String[] component2 = new String[]{"D","E","F"};
 		checkComponentVertices(graphProcessor,"A",Arrays.asList(component1),3,graphId);
-		checkComponentVertices(graphProcessor,"C",Arrays.asList(component1),3,graphId);
 		checkComponentVertices(graphProcessor,"D",Arrays.asList(component2),3,graphId);
 		checkComponentVertices(graphProcessor,"E",Arrays.asList(component2),3,graphId);
 
@@ -598,7 +606,6 @@ public class HomeWork5Test extends TestCase{
 
 	@Test
 	public void testSCC5() {
-		// TODO decide final points
 		GraphProcessor graphProcessor = createGraphProcessor("scc-5.txt", 15);
 		String graphId = "scc-5";
 		checkSameComponent(graphProcessor, "A", "D", true, 3, graphId);
@@ -654,7 +661,7 @@ public class HomeWork5Test extends TestCase{
 		try {
 			List<String> path = graphProcessor.bfsPath(source, dest);
 
-			if((expectedPath == null && (path == null || path.size() == 0)) || (!path.equals(expectedPath))) {
+			if((expectedPath == null && (path == null || path.size() == 0)) || path == null || (!path.equals(expectedPath))) {
 				totalPoints -= points;
 				commentsBuilder.append("Incorrect value returned for GraphProcessor.bfsPath(" + source + "," + dest + ")" + deduct);
 			}
@@ -703,6 +710,151 @@ public class HomeWork5Test extends TestCase{
 		checkBFSPath(graphProcessor,"B", "C",null,5.5f,graphId);
 	}
 
+	@Test
+	public void testRunTime() {
+		try {
+			// we create a new thread and interrupt it if it runs more than the allowed time
+			final ExecutorService service = Executors.newSingleThreadExecutor();
+			final Future<?> f = service.submit(new TimedBoundTestingService());
+			f.get(TIMEOUT_MINUTES, TimeUnit.MINUTES);
+			service.shutdown();
+		} catch(Exception e) {
+			e.printStackTrace();
+			totalPoints -= 50;
+			commentsBuilder.append("Error timing graph processor or Submission hit maximum allowed time when testing run time (-50 points)");
+			Assert.fail("Program too slow");
+		}
+	}
+
+	class TimedBoundTestingService implements Runnable {
+
+		public void run() {
+			List<String> pairs = getEdgesFromFile(inputDirectory + "vertex-pairs.txt");
+			List<String> vertices = getVerticesFromFile(inputDirectory + "vertex-list.txt");
+			RefGraphProcessor refGraphProcessor = null;
+			GraphProcessor graphProcessor = null;
+			// run and time reference code
+			long time1 = System.currentTimeMillis();
+			try {
+				refGraphProcessor = new RefGraphProcessor(inputDirectory + "largegraph.txt");
+				refGraphProcessor.numComponents();
+			} catch (Exception e) {
+				e.printStackTrace();
+				Assert.fail("Exception running reference graph processor");
+			}
+			long time2 = System.currentTimeMillis();
+			try {
+				for(String pair : pairs) {
+					String[] v = pair.split(" ");
+					refGraphProcessor.sameComponent(v[0],v[1]);
+				}
+			} catch (Exception e) {
+				e.printStackTrace();
+				Assert.fail("Exception running reference graph processor");
+			}
+			long time3 = System.currentTimeMillis();
+			try {
+				for(String vertex : vertices) {
+					refGraphProcessor.componentVertices(vertex);
+				}
+			} catch (Exception e) {
+				e.printStackTrace();
+				Assert.fail("Exception running reference graph processor");
+			}
+			long time4 = System.currentTimeMillis();
+			long refTime1 = time2 - time1;
+			long refTime2 = time3 - time2;
+			long refTime3 = time4 - time3;
+			// de-reference and request garbage collection
+			refGraphProcessor = null;
+			System.gc();
+			// run submitted graph processor
+			time1 = System.currentTimeMillis();
+			try {
+				graphProcessor = new GraphProcessor(inputDirectory + "largegraph.txt");
+				graphProcessor.numComponents();
+			} catch (Exception e) {
+				// if it fails here, no other part can be run
+				totalPoints -= 50;
+				commentsBuilder.append("Exception creating GraphProcessor for recording run time. Exception - " + e.getClass().getCanonicalName() + " , (-50 points). ");
+				Assert.fail("Exception testing run time");
+			}
+			time2 = System.currentTimeMillis();
+			try {
+				for(String pair : pairs) {
+					String[] v = pair.split(" ");
+					graphProcessor.sameComponent(v[0],v[1]);
+				}
+			} catch (Exception e) {
+				totalPoints -= 10;
+				commentsBuilder.append("Exception timing sameComponent. Exception - " + e.getClass().getCanonicalName() + " , (-10 points). ");
+				collector.addError(new AssertionError("Exception testing sameComponent run time"));
+			}
+			time3 = System.currentTimeMillis();
+			try {
+				for(String vertex : vertices) {
+					graphProcessor.componentVertices(vertex);
+				}
+			} catch (Exception e) {
+				totalPoints -= 10;
+				commentsBuilder.append("Exception timing componentVertices. Exception - " + e.getClass().getCanonicalName() + " , (-10 points). ");
+				collector.addError(new AssertionError("Exception testing componentVertices run time"));
+			}
+			time4 = System.currentTimeMillis();
+			long subTime1 = time2 - time1;
+			long subTime2 = time3 - time2;
+			long subTime3 = time4 - time3;
+
+			if((refTime1 * 3) < subTime1) {
+				totalPoints -= 30;
+				commentsBuilder.append("GraphProcessor.init() and GraphProcessor.numComponents() implemented inefficiently (-30 points). ");
+			}
+			if((refTime2 * 3) < subTime2) {
+				totalPoints -= 10;
+				commentsBuilder.append("GraphProcessor.sameComponent() implemented inefficiently (-10 points). ");
+			}
+			if((refTime3 * 3) < subTime3) {
+				totalPoints -= 10;
+				commentsBuilder.append("GraphProcessor.componentVertices() implemented inefficiently (-10 points). ");
+			}
+			String content = studentName + "," + refTime1 + "," + subTime1 + "," + refTime2 + "," + subTime2 + "," + refTime3 + "," + subTime3;
+			appendToFile(content, "runtimes.csv");
+		}
+
+	}
+
+	private List<String> getVerticesFromFile(String fileName) {
+		File file = new File(fileName);
+		file.getAbsolutePath();
+		List<String> vertices = new ArrayList<String>();
+		try {
+			BufferedReader reader = new BufferedReader(new FileReader(fileName));
+			String line;
+			while((line = reader.readLine()) != null) {
+				if(!line.trim().equals("")){
+					vertices.add(line.trim());
+				}
+			}
+			reader.close();
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return vertices;
+	}
+
+	public static void appendToFile(String content, String filePath) {
+		try {
+			FileWriter csvWriter = new FileWriter(filePath, true);
+			csvWriter.append(content + System.lineSeparator());
+			csvWriter.flush();
+			csvWriter.close();
+			System.out.println("Results added to file");
+		} catch (Exception e){
+			System.out.println("Error writing to file. Write it yourself!");
+			System.out.println("Result : " + content);
+		}
+	}
+
 	@AfterClass
 	public static void writeCommentsAndPoints(){
 		try {
@@ -717,4 +869,6 @@ public class HomeWork5Test extends TestCase{
 			System.out.println("Result : " + studentName + "," + totalPoints + "," + commentsBuilder.toString());
 		} 
 	}
+
+
 }
